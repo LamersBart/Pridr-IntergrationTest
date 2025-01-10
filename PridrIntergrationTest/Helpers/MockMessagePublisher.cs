@@ -1,7 +1,7 @@
 using System.Text;
 using RabbitMQ.Client;
 
-namespace Pridr_IntergrationTest.Helpers;
+namespace PridrIntergrationTest.Helpers;
 
 public class MockMessagePublisher
 {

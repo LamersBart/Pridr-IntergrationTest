@@ -5,7 +5,7 @@ using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Npgsql;
 
-namespace Pridr_IntergrationTest.Setup;
+namespace PridrIntergrationTest.Setup;
 
 public class ContainerSetup : IAsyncDisposable
 {
@@ -30,6 +30,7 @@ public class ContainerSetup : IAsyncDisposable
             .WithName("pridr-network")
             .WithReuse(true)
             .Build();
+        await _network.CreateAsync();
         
         // RabbitMQ container
         RabbitMqContainer = new RabbitMqBuilder()

@@ -1,0 +1,8 @@
+{
+  "xunit": {
+    "methodDisplay": "method",
+    "methodDisplayOptions": "all",
+    "diagnosticMessages": true,
+    "testCaseOrderer": "PridrIntergrationTest.Helpers.TestCaseOrderer, PridrIntergrationTest"
+  }
+}

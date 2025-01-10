@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Pridr_IntergrationTest.Helpers;
+namespace PridrIntergrationTest.Helpers;
 
 public class EncryptionHelper
 {
@@ -13,7 +13,7 @@ public class EncryptionHelper
         }
     }
 
-    public static string Decrypt(string cipherText)
+    public string Decrypt(string cipherText)
     {
         if (string.IsNullOrEmpty(cipherText)) return cipherText;
 

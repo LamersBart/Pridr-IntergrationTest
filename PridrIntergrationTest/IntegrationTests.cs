@@ -1,13 +1,12 @@
-using System.Net.Http.Headers;
 using System.Text;
 using Npgsql;
-using Pridr_IntergrationTest.Helpers;
-using Pridr_IntergrationTest.Setup;
+using PridrIntergrationTest.Helpers;
 
-namespace Pridr_IntergrationTest;
+namespace PridrIntergrationTest;
 
 [Collection("ContainerTests")]
-public class IntegrationTests : IClassFixture<SharedContainerSetup>
+[TestCaseOrderer(ordererTypeName: "PridrIntergrationTest.Helpers.TestCaseOrderer", "PridrIntergrationTest")]
+public class IntegrationTests
 {
     private readonly SharedContainerSetup _sharedSetup;
     private readonly MockMessagePublisher _mockMessagePublisher;
@@ -20,116 +19,107 @@ public class IntegrationTests : IClassFixture<SharedContainerSetup>
         _encryptionHelper = new EncryptionHelper();
     }
     
-    [Fact]
-    public async Task IntegrationTestFlow()
+    [Fact, TestPriority(1)]
+    public async Task A_Keycloak_Create_User_Event()
     {
         // 1. Add User (Test 1)
-        await A_Keycloak_Create_User_Event();
+        // Arrange
+        await _sharedSetup.InitializeAsync();
+        Console.WriteLine($"UserService container state: {_sharedSetup.ContainerSetup.UserService.State}");
+        
+        const string message = "{\"@class\":\"com.github.aznamier.keycloak.event.provider.EventClientNotificationMqMsg\",\"time\":1736270017968,\"type\":\"REGISTER\",\"realmId\":\"4ad2a6d1-4fc2-4f01-82b1-31ca3a382fb0\",\"clientId\":\"account-console\",\"userId\":\"a6427685-84e3-4fbf-8716-c94d1053b020\",\"ipAddress\":\"192.168.65.3\",\"details\":{\"auth_method\":\"openid-connect\",\"auth_type\":\"code\",\"register_method\":\"form\",\"redirect_uri\":\"http://localhost:8080/realms/pridr/account/\",\"code_id\":\"ceb07c03-89fc-4ee2-b2c5-c7a477ce3535\",\"email\":\"testjebla@blabla.com\",\"username\":\"testjebla@blabla.com\"}}";
+        
+        // Act 
+        _mockMessagePublisher.PublishMessage(
+            message, 
+            _sharedSetup.ContainerSetup.RabbitMqContainer.Hostname, 
+            _sharedSetup.ContainerSetup.RabbitMqContainer.GetMappedPublicPort(5672),
+            "NewUser"
+        );
+        
+        // Assert
+        bool isProcessed = false;
+        await WaitForConditionAsync(
+            async () => isProcessed = await CheckIfUserExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
+            TimeSpan.FromSeconds(60),
+            TimeSpan.FromMilliseconds(500)
+        );
+        Assert.True(isProcessed, "User is niet aangemaakt in de DB");
+    }
 
+    [Fact, TestPriority(2)]
+    public async Task B_User_Update_Event()
+    {
         // 2. Update User (Test 2)
-        await B_User_Update_Event();
-
-        // 3. Delete User (Test 3)
-        await C_User_Create_UserEvent();
-        
-        // 4. Delete User (Test 3)
-        await D_Keycloak_Delete_User_Event();
-
-
-        async Task A_Keycloak_Create_User_Event()
-        {
-            // Arrange
-            await _sharedSetup.InitializeAsync();
-            Console.WriteLine($"UserService container state: {_sharedSetup.ContainerSetup.UserService.State}");
-        
-            const string message = "{\"@class\":\"com.github.aznamier.keycloak.event.provider.EventClientNotificationMqMsg\",\"time\":1736270017968,\"type\":\"REGISTER\",\"realmId\":\"4ad2a6d1-4fc2-4f01-82b1-31ca3a382fb0\",\"clientId\":\"account-console\",\"userId\":\"a6427685-84e3-4fbf-8716-c94d1053b020\",\"ipAddress\":\"192.168.65.3\",\"details\":{\"auth_method\":\"openid-connect\",\"auth_type\":\"code\",\"register_method\":\"form\",\"redirect_uri\":\"http://localhost:8080/realms/pridr/account/\",\"code_id\":\"ceb07c03-89fc-4ee2-b2c5-c7a477ce3535\",\"email\":\"testjebla@blabla.com\",\"username\":\"testjebla@blabla.com\"}}";
-        
-            // Act 
-            _mockMessagePublisher.PublishMessage(
-                message, 
-                _sharedSetup.ContainerSetup.RabbitMqContainer.Hostname, 
-                _sharedSetup.ContainerSetup.RabbitMqContainer.GetMappedPublicPort(5672),
-                "NewUser"
-            );
-        
-            // Assert
-            bool isProcessed = false;
-            await WaitForConditionAsync(
-                async () => isProcessed = await CheckIfUserExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
-                TimeSpan.FromSeconds(60),
-                TimeSpan.FromMilliseconds(500)
-            );
-            Assert.True(isProcessed, "Het bericht is niet correct verwerkt. User is niet aangemaakt in de DB");
-        }
-
-        async Task B_User_Update_Event()
-        {
-            // Arrange
-            var client = new HttpClient();
-            var content = new StringContent(
-                "{ \"sexuality\": 1, \"lookingFor\": 0, \"relationStatus\": 1, \"age\": 28, \"weight\": 60, \"height\": 180, \"userName\": \"testuser\" }",
-                Encoding.UTF8,"application/json"
-            );
+        // Arrange
+        var client = new HttpClient();
+        var content = new StringContent(
+            "{ \"sexuality\": 1, \"lookingFor\": 0, \"relationStatus\": 1, \"age\": 28, \"weight\": 60, \"height\": 180, \"userName\": \"testuser\" }",
+            Encoding.UTF8,"application/json"
+        );
             
-            // Act 
-            var response = await client.PatchAsync($"http://{_sharedSetup.ContainerSetup.UserService.Hostname}:{_sharedSetup.ContainerSetup.UserService.GetMappedPublicPort(8080)}/api/v1/profiles/test", content);
-            response.EnsureSuccessStatusCode();
+        // Act 
+        var response = await client.PatchAsync($"http://{_sharedSetup.ContainerSetup.UserService.Hostname}:{_sharedSetup.ContainerSetup.UserService.GetMappedPublicPort(8080)}/api/v1/profiles/test", content);
+        response.EnsureSuccessStatusCode();
             
-            // Assert
-            bool isProcessed = false;
-            await WaitForConditionAsync(
-                async () => isProcessed = await CheckIfUsernameIsUpdated("a6427685-84e3-4fbf-8716-c94d1053b020", "testuser"),
-                TimeSpan.FromSeconds(60),
-                TimeSpan.FromMilliseconds(500)
-            );
-            Assert.True(isProcessed, "Het bericht is niet correct verwerkt. User is niet geüpdatet in de DB");
-        }
+        // Assert
+        bool isProcessed = false;
+        await WaitForConditionAsync(
+            async () => isProcessed = await CheckIfUsernameIsUpdated("a6427685-84e3-4fbf-8716-c94d1053b020", "testuser"),
+            TimeSpan.FromSeconds(60),
+            TimeSpan.FromMilliseconds(500)
+        );
+        Assert.True(isProcessed, "Gebruiker is niet succesvol bijgewerkt in de DB");
+    }
+    
+    [Fact, TestPriority(3)]
+    public async Task C_User_Create_UserEvent()
+    {
+        // 3. Create UserEvent (Test 3)
+        // Arrange
+        var client = new HttpClient();
+        var content = new StringContent(
+            "{\"name\":\"TestEvent\",\"date\":\"2025-01-10T16:14:22.288Z\",\"profileIds\":[\"string\"]}",
+            Encoding.UTF8,"application/json"
+        );
         
-        async Task C_User_Create_UserEvent()
-        {
-            // Arrange
-            var client = new HttpClient();
-            var content = new StringContent(
-                "{\"name\":\"TestEvent\",\"date\":\"2025-01-10T16:14:22.288Z\",\"profileIds\":[\"string\"]}",
-                Encoding.UTF8,"application/json"
-            );
-            
-            // Act 
-            var response = await client.PostAsync($"http://{_sharedSetup.ContainerSetup.EventService.Hostname}:{_sharedSetup.ContainerSetup.EventService.GetMappedPublicPort(8080)}/api/v1/event/test", content);
-            response.EnsureSuccessStatusCode();
-            
-            // Assert
-            bool isProcessed = false;
-            await WaitForConditionAsync(
-                async () => isProcessed = await CheckIfUserEventExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
-                TimeSpan.FromSeconds(60),
-                TimeSpan.FromMilliseconds(500)
-            );
-            Assert.True(isProcessed, "Het bericht is niet correct verwerkt. Geen UserEvent aangemaakt in de DB");
-        }
+        // Act 
+        var response = await client.PostAsync($"http://{_sharedSetup.ContainerSetup.EventService.Hostname}:{_sharedSetup.ContainerSetup.EventService.GetMappedPublicPort(8080)}/api/v1/event/test", content);
+        response.EnsureSuccessStatusCode();
         
-        async Task D_Keycloak_Delete_User_Event()
-        {
-            // Arrange
-            const string message = "{\"@class\":\"com.github.aznamier.keycloak.event.provider.EventClientNotificationMqMsg\",\"time\":1736270017968,\"type\":\"DELETE_ACCOUNT\",\"realmId\":\"4ad2a6d1-4fc2-4f01-82b1-31ca3a382fb0\",\"clientId\":\"account-console\",\"userId\":\"a6427685-84e3-4fbf-8716-c94d1053b020\",\"ipAddress\":\"192.168.65.3\",\"details\":{\"auth_method\":\"openid-connect\",\"auth_type\":\"code\",\"register_method\":\"form\",\"redirect_uri\":\"http://localhost:8080/realms/pridr/account?referrer=Frontend&referrer_uri=http%3A%2F%2Flocalhost%3A5173%2Fprofile\",\"code_id\":\"ceb07c03-89fc-4ee2-b2c5-c7a477ce3535\",\"email\":\"testjebla@blabla.com\",\"username\":\"testjebla@blabla.com\"}}";
-            
-            // Act 
-            _mockMessagePublisher.PublishMessage(
-                message, 
-                _sharedSetup.ContainerSetup.RabbitMqContainer.Hostname, 
-                _sharedSetup.ContainerSetup.RabbitMqContainer.GetMappedPublicPort(5672),
-                "DeleteUser"
-            );
-            
-            // Assert
-            bool isProcessed = false;
-            await WaitForConditionAsync(
-                async () => isProcessed = await CheckIfUserIsDeleted("a6427685-84e3-4fbf-8716-c94d1053b020"),
-                TimeSpan.FromSeconds(60),
-                TimeSpan.FromMilliseconds(500)
-            );
-            Assert.True(isProcessed, "Het bericht is niet correct verwerkt. User is niet verwijderd uit alle DB's");
-        }
+        // Assert
+        bool isProcessed = false;
+        await WaitForConditionAsync(
+            async () => isProcessed = await CheckIfUserEventExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
+            TimeSpan.FromSeconds(60),
+            TimeSpan.FromMilliseconds(500)
+        );
+        Assert.True(isProcessed, "Geen UserEvent aangemaakt in de DB");
+    }
+    
+    [Fact, TestPriority(4)]
+    public async Task D_Keycloak_Delete_User_Event()
+    {
+        // 4. Delete User (Test 4)
+        // Arrange
+        const string message = "{\"@class\":\"com.github.aznamier.keycloak.event.provider.EventClientNotificationMqMsg\",\"time\":1736270017968,\"type\":\"DELETE_ACCOUNT\",\"realmId\":\"4ad2a6d1-4fc2-4f01-82b1-31ca3a382fb0\",\"clientId\":\"account-console\",\"userId\":\"a6427685-84e3-4fbf-8716-c94d1053b020\",\"ipAddress\":\"192.168.65.3\",\"details\":{\"auth_method\":\"openid-connect\",\"auth_type\":\"code\",\"register_method\":\"form\",\"redirect_uri\":\"http://localhost:8080/realms/pridr/account?referrer=Frontend&referrer_uri=http%3A%2F%2Flocalhost%3A5173%2Fprofile\",\"code_id\":\"ceb07c03-89fc-4ee2-b2c5-c7a477ce3535\",\"email\":\"testjebla@blabla.com\",\"username\":\"testjebla@blabla.com\"}}";
+        
+        // Act 
+        _mockMessagePublisher.PublishMessage(
+            message, 
+            _sharedSetup.ContainerSetup.RabbitMqContainer.Hostname, 
+            _sharedSetup.ContainerSetup.RabbitMqContainer.GetMappedPublicPort(5672),
+            "DeleteUser"
+        );
+        
+        // Assert
+        bool isProcessed = false;
+        await WaitForConditionAsync(
+            async () => isProcessed = await CheckIfUserIsDeleted("a6427685-84e3-4fbf-8716-c94d1053b020"),
+            TimeSpan.FromSeconds(60),
+            TimeSpan.FromMilliseconds(500)
+        );
+        Assert.True(isProcessed, "User is niet verwijderd uit alle DB's");
     }
 
     private static async Task WaitForConditionAsync(Func<Task<bool>> condition, TimeSpan timeout, TimeSpan pollingInterval)
@@ -146,6 +136,39 @@ public class IntegrationTests : IClassFixture<SharedContainerSetup>
             await Task.Delay(pollingInterval);
         }
         throw new TimeoutException("Condition was not met within the timeout period.");
+    }
+    
+    bool isProcessed = false;
+
+    private async Task<bool> UpdateUserAndWaitForConfirmation(HttpClient client, string url, StringContent content, string userId)
+    {
+        bool isProcessed = false;
+
+        await WaitForConditionAsync(
+            async () =>
+            {
+                // Voer de PATCH-aanroep uit
+                try
+                {
+                    var response = await client.PatchAsync(url, content);
+                    response.EnsureSuccessStatusCode();
+                    Console.WriteLine("PATCH-aanroep was succesvol.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"PATCH-aanroep mislukt: {ex.Message}");
+                    return false; // Probeer opnieuw
+                }
+
+                // Controleer of de gebruiker bestaat
+                isProcessed = await CheckIfUserExists(userId);
+                return isProcessed;
+            },
+            TimeSpan.FromSeconds(60), // Totale wachttijd
+            TimeSpan.FromMilliseconds(500) // Interval tussen herhalingen
+        );
+
+        return isProcessed;
     }
     
     private async Task<bool> CheckIfUserExists(string keyCloakId)
@@ -200,7 +223,7 @@ public class IntegrationTests : IClassFixture<SharedContainerSetup>
             if (userServiceResult is string username)
             {
                 // Decrypt the username here if needed
-                if (newUserName == EncryptionHelper.Decrypt(username))
+                if (newUserName == _encryptionHelper.Decrypt(username))
                 {
                     // Continue to check the chatservice
                     await using var chatServiceConnection = new NpgsqlConnection(_sharedSetup.ContainerSetup.chatServiceConnString);
@@ -215,7 +238,7 @@ public class IntegrationTests : IClassFixture<SharedContainerSetup>
                     if (chatServiceResult is string usernameChatService)
                     {
                         // Decrypt the username here if needed
-                        if (newUserName == EncryptionHelper.Decrypt(usernameChatService))
+                        if (newUserName == _encryptionHelper.Decrypt(usernameChatService))
                         {
                             return true;
                         }
@@ -276,7 +299,7 @@ public class IntegrationTests : IClassFixture<SharedContainerSetup>
         chatServiceCommand.Parameters.AddWithValue("@KeycloakId", keyCloakId);
 
         var chatServiceResult = await chatServiceCommand.ExecuteScalarAsync();
-        var usernameUpdated = chatServiceResult is string username && "Deleted User" == EncryptionHelper.Decrypt(username);
+        var usernameUpdated = chatServiceResult is string username && "Deleted User" == _encryptionHelper.Decrypt(username);
 
         // eventservice check
         await using var eventServiceConnection = new NpgsqlConnection(_sharedSetup.ContainerSetup.eventServiceConnString);

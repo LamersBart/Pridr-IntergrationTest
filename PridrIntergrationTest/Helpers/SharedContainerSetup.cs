@@ -1,6 +1,6 @@
-using Pridr_IntergrationTest.Setup;
+using PridrIntergrationTest.Setup;
 
-namespace Pridr_IntergrationTest.Helpers;
+namespace PridrIntergrationTest.Helpers;
 
 public class SharedContainerSetup : IAsyncLifetime
 {
