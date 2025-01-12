@@ -45,9 +45,9 @@ public class ContainerSetup : IAsyncDisposable
         await RabbitMqContainer.StartAsync();
         rabbitMQHost = RabbitMqContainer.Hostname;
         rabbitMQPort = RabbitMqContainer.GetMappedPublicPort(5672).ToString();
-        Console.WriteLine($"RabbitMQ Host: {rabbitMQHost}");
-        Console.WriteLine($"RabbitMQ Port: " + rabbitMQPort);
-        Console.WriteLine($"RabbitMQ Management Port: " + RabbitMqContainer.GetMappedPublicPort(15672));
+        Console.WriteLine($"--> RabbitMQ Host: {rabbitMQHost}");
+        Console.WriteLine($"--> RabbitMQ Port: " + rabbitMQPort);
+        Console.WriteLine($"--> RabbitMQ Management Port: " + RabbitMqContainer.GetMappedPublicPort(15672));
 
         
         // PostgreSQL container
@@ -63,8 +63,8 @@ public class ContainerSetup : IAsyncDisposable
         await PostgresContainer.StartAsync();
         postgressHost = PostgresContainer.Hostname;
         postgressPort = PostgresContainer.GetMappedPublicPort(5432).ToString();
-        Console.WriteLine($"PostgreSQL Host: {postgressHost}");
-        Console.WriteLine($"PostgreSQL Port: " + postgressPort);
+        Console.WriteLine($"--> PostgreSQL Host: {postgressHost}");
+        Console.WriteLine($"--> PostgreSQL Port: " + postgressPort);
         await CreateDatabasesAsync();
         
         // UserService
@@ -88,9 +88,8 @@ public class ContainerSetup : IAsyncDisposable
             .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(8080))
             .Build();
         await UserService.StartAsync();
-        Console.WriteLine($"UserService Hostname: {UserService.Hostname}");
-        Console.WriteLine($"UserService Port: {UserService.GetMappedPublicPort(8080)}");
-        Console.WriteLine($"UserService container state: {UserService.State}");
+        Console.WriteLine($"--> UserService Hostname: {UserService.Hostname}");
+        Console.WriteLine($"--> UserService Port: {UserService.GetMappedPublicPort(8080)}");
 
 
         
@@ -135,7 +134,6 @@ public class ContainerSetup : IAsyncDisposable
             .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(8080))
             .Build();
         await ChatService.StartAsync();
-        await Task.Delay(5000);
     }
 
     private async Task CreateDatabasesAsync() {
@@ -145,8 +143,7 @@ public class ContainerSetup : IAsyncDisposable
             CREATE DATABASE event_db;
             CREATE DATABASE user_db;
         ";
-
-        Console.WriteLine($"--> CreateDatabasesAsync: conn-string: {connectionString}");
+        
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
 

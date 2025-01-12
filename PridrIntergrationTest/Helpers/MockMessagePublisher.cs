@@ -36,10 +36,10 @@ public class MockMessagePublisher
 
                 if (!channel.WaitForConfirms(TimeSpan.FromSeconds(10)))
                 {
-                    throw new Exception("Message was not confirmed by RabbitMQ.");
+                    throw new Exception("--> Message was not confirmed by RabbitMQ.");
                 }
 
-                Console.WriteLine("Message confirmed by RabbitMQ.");
+                Console.WriteLine("--> Message confirmed by RabbitMQ.");
             }
                 break;
             case "DeleteUser":
@@ -58,9 +58,9 @@ public class MockMessagePublisher
        
                 if (!channel.WaitForConfirms(TimeSpan.FromSeconds(10)))
                 {
-                    throw new Exception("Message was not confirmed by RabbitMQ.");
+                    throw new Exception("--> Message was not confirmed by RabbitMQ.");
                 }
-                Console.WriteLine("Message confirmed by RabbitMQ.");
+                Console.WriteLine("--> Message confirmed by RabbitMQ.");
             }
                 break;
         }

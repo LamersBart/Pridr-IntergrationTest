@@ -8,7 +8,7 @@ public class TestCaseOrderer : ITestCaseOrderer
     public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases)
         where TTestCase : ITestCase
     {
-        Console.WriteLine("TestCaseOrderer is actief.");
+        Console.WriteLine("--> TestCaseOrderer is active.");
         
         string assemblyName = typeof(TestPriorityAttribute).AssemblyQualifiedName!;
         var sortedMethods = new SortedDictionary<int, List<TTestCase>>();

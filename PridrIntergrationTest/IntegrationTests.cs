@@ -25,7 +25,6 @@ public class IntegrationTests
         // 1. Add User (Test 1)
         // Arrange
         await _sharedSetup.InitializeAsync();
-        Console.WriteLine($"UserService container state: {_sharedSetup.ContainerSetup.UserService.State}");
         
         const string message = "{\"@class\":\"com.github.aznamier.keycloak.event.provider.EventClientNotificationMqMsg\",\"time\":1736270017968,\"type\":\"REGISTER\",\"realmId\":\"4ad2a6d1-4fc2-4f01-82b1-31ca3a382fb0\",\"clientId\":\"account-console\",\"userId\":\"a6427685-84e3-4fbf-8716-c94d1053b020\",\"ipAddress\":\"192.168.65.3\",\"details\":{\"auth_method\":\"openid-connect\",\"auth_type\":\"code\",\"register_method\":\"form\",\"redirect_uri\":\"http://localhost:8080/realms/pridr/account/\",\"code_id\":\"ceb07c03-89fc-4ee2-b2c5-c7a477ce3535\",\"email\":\"testjebla@blabla.com\",\"username\":\"testjebla@blabla.com\"}}";
         
@@ -42,7 +41,9 @@ public class IntegrationTests
         await WaitForConditionAsync(
             async () => isProcessed = await CheckIfUserExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
             TimeSpan.FromSeconds(60),
-            TimeSpan.FromMilliseconds(500)
+            TimeSpan.FromMilliseconds(500),
+            "A_Keycloak_Create_User_Event",
+            "B_User_Update_Event"
         );
         Assert.True(isProcessed, "User is niet aangemaakt in de DB");
     }
@@ -67,7 +68,9 @@ public class IntegrationTests
         await WaitForConditionAsync(
             async () => isProcessed = await CheckIfUsernameIsUpdated("a6427685-84e3-4fbf-8716-c94d1053b020", "testuser"),
             TimeSpan.FromSeconds(60),
-            TimeSpan.FromMilliseconds(500)
+            TimeSpan.FromMilliseconds(500),
+            "B_User_Update_Event",
+            "C_User_Create_UserEvent"
         );
         Assert.True(isProcessed, "Gebruiker is niet succesvol bijgewerkt in de DB");
     }
@@ -92,7 +95,9 @@ public class IntegrationTests
         await WaitForConditionAsync(
             async () => isProcessed = await CheckIfUserEventExists("a6427685-84e3-4fbf-8716-c94d1053b020"),
             TimeSpan.FromSeconds(60),
-            TimeSpan.FromMilliseconds(500)
+            TimeSpan.FromMilliseconds(500),
+            "C_User_Create_UserEvent",
+            "D_Keycloak_Delete_User_Event"
         );
         Assert.True(isProcessed, "Geen UserEvent aangemaakt in de DB");
     }
@@ -117,12 +122,14 @@ public class IntegrationTests
         await WaitForConditionAsync(
             async () => isProcessed = await CheckIfUserIsDeleted("a6427685-84e3-4fbf-8716-c94d1053b020"),
             TimeSpan.FromSeconds(60),
-            TimeSpan.FromMilliseconds(500)
+            TimeSpan.FromMilliseconds(500),
+            "D_Keycloak_Delete_User_Event",
+            "Cleanup"
         );
         Assert.True(isProcessed, "User is niet verwijderd uit alle DB's");
     }
 
-    private static async Task WaitForConditionAsync(Func<Task<bool>> condition, TimeSpan timeout, TimeSpan pollingInterval)
+    private static async Task WaitForConditionAsync(Func<Task<bool>> condition, TimeSpan timeout, TimeSpan pollingInterval, string test, string nextTest)
     {
         var start = DateTime.UtcNow;
 
@@ -130,45 +137,13 @@ public class IntegrationTests
         {
             if (await condition())
             {
-                Console.WriteLine("Condition met, proceeding...");
+                var duration = DateTime.UtcNow - start;
+                Console.WriteLine($"--> Condition met for test: {test} after {duration.TotalSeconds:F2} seconds, proceeding with {nextTest}...");
                 return;
             }
             await Task.Delay(pollingInterval);
         }
-        throw new TimeoutException("Condition was not met within the timeout period.");
-    }
-    
-    bool isProcessed = false;
-
-    private async Task<bool> UpdateUserAndWaitForConfirmation(HttpClient client, string url, StringContent content, string userId)
-    {
-        bool isProcessed = false;
-
-        await WaitForConditionAsync(
-            async () =>
-            {
-                // Voer de PATCH-aanroep uit
-                try
-                {
-                    var response = await client.PatchAsync(url, content);
-                    response.EnsureSuccessStatusCode();
-                    Console.WriteLine("PATCH-aanroep was succesvol.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"PATCH-aanroep mislukt: {ex.Message}");
-                    return false; // Probeer opnieuw
-                }
-
-                // Controleer of de gebruiker bestaat
-                isProcessed = await CheckIfUserExists(userId);
-                return isProcessed;
-            },
-            TimeSpan.FromSeconds(60), // Totale wachttijd
-            TimeSpan.FromMilliseconds(500) // Interval tussen herhalingen
-        );
-
-        return isProcessed;
+        throw new TimeoutException($"--> Condition was not met for test: {test} within the timeout period.");
     }
     
     private async Task<bool> CheckIfUserExists(string keyCloakId)
@@ -201,7 +176,7 @@ public class IntegrationTests
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking user existence: {ex.Message}");
+            Console.WriteLine($"--> Error checking user existence: {ex.Message}");
             return false;
         }
     }
@@ -249,7 +224,7 @@ public class IntegrationTests
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking if username is updated: {ex.Message}");
+            Console.WriteLine($"--> Error checking if username is updated: {ex.Message}");
             return false;
         }
     }
@@ -270,7 +245,7 @@ public class IntegrationTests
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking user event existence: {ex.Message}");
+            Console.WriteLine($"--> Error checking user event existence: {ex.Message}");
             return false;
         }
     }
@@ -316,7 +291,7 @@ public class IntegrationTests
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error checking if user is deleted everywhere: {ex.Message}");
+        Console.WriteLine($"--> Error checking if user is deleted everywhere: {ex.Message}");
         return false;
     }
     }
