@@ -27,8 +27,8 @@ jobs:
     - name: Install dependencies
       run: dotnet restore PridrIntergrationTest/PridrIntergrationTest.csproj
 
-    - name: Run integration tests
+    - name: Run integration tests with detailed output
       env:
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
         DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-      run: dotnet test PridrIntergrationTest/PridrIntergrationTest.csproj
+      run: dotnet test PridrIntergrationTest/PridrIntergrationTest.csproj --filter TestCategory=Integration --logger "console;verbosity=detailed"
