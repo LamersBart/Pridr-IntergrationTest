@@ -1,14 +1,11 @@
 name: Testcontainers Integration Tests
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     services:
       docker:
@@ -32,3 +29,19 @@ jobs:
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
         DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
       run: dotnet test PridrIntergrationTest/PridrIntergrationTest.csproj --logger "console;verbosity=detailed"
+      
+    - name: Set status on success
+      if: success()
+      run: echo "✅ Integration tests passed!"
+
+    - name: Set status on failure
+      if: failure()
+      run: echo "❌ Integration tests failed!"
+      
+    - name: Upload Test Results
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: ./TestResults/
+
